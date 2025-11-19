@@ -1,69 +1,53 @@
 import { Header } from "@/components/Header";
 import { RecipeCard } from "@/components/RecipeCard";
-
-const sampleRecipes = [
-  {
-    title: "Schoko-Cookies",
-    description: "Knusprige Cookies mit zartschmelzenden Schokostückchen. Ein Klassiker, der immer gelingt!",
-    time: "25 Min",
-    difficulty: "Einfach" as const,
-    category: "Cookies",
-    image: "https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=800&q=80",
-    isPremium: false,
-  },
-  {
-    title: "Saftiger Marmorkuchen",
-    description: "Der perfekte Marmorkuchen mit einer wunderschönen Marmorierung und saftigem Teig.",
-    time: "60 Min",
-    difficulty: "Mittel" as const,
-    category: "Kuchen",
-    image: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=800&q=80",
-    isPremium: true,
-  },
-  {
-    title: "Zimtschnecken",
-    description: "Fluffige Zimtschnecken mit cremigem Frosting - ein Traum für jeden Zimtfan!",
-    time: "90 Min",
-    difficulty: "Schwer" as const,
-    category: "Gebäck",
-    image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800&q=80",
-    isPremium: true,
-  },
-  {
-    title: "Vanille-Cupcakes",
-    description: "Zarte Cupcakes mit Vanille-Buttercreme und bunten Streuseln.",
-    time: "40 Min",
-    difficulty: "Einfach" as const,
-    category: "Cupcakes",
-    image: "https://images.unsplash.com/photo-1614707267537-b85aaf00c4b7?w=800&q=80",
-    isPremium: false,
-  },
-  {
-    title: "Mandel-Makronen",
-    description: "Knusprige Außenseite, weicher Kern - die perfekten Mandel-Makronen.",
-    time: "35 Min",
-    difficulty: "Mittel" as const,
-    category: "Gebäck",
-    image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80",
-    isPremium: true,
-  },
-  {
-    title: "Erdnussbutter-Cookies",
-    description: "Amerikanische Cookies mit cremiger Erdnussbutter - unwiderstehlich lecker!",
-    time: "20 Min",
-    difficulty: "Einfach" as const,
-    category: "Cookies",
-    image: "https://images.unsplash.com/photo-1486893732792-ab0085cb2d43?w=800&q=80",
-    isPremium: false,
-  },
-];
+import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 
 const Index = () => {
+  const { user, isPremium, isLoading: authLoading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/auth");
+    }
+  }, [user, authLoading, navigate]);
+
+  const { data: recipes, isLoading } = useQuery({
+    queryKey: ['recipes', isPremium],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('recipes')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      // Filter premium recipes on client if user is not premium
+      if (!isPremium) {
+        return data.filter(recipe => !recipe.is_premium);
+      }
+      
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  if (authLoading || !user) {
+    return null;
+  }
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-accent/10 pointer-events-none" />
+      
       <Header />
       
-      <main className="container py-8 space-y-8">
+      <main className="container py-8 space-y-8 relative">
         <div className="text-center space-y-4 animate-fade-in">
           <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent animate-shimmer bg-[length:200%_auto]">
             Entdecke leckere Rezepte
@@ -71,21 +55,45 @@ const Index = () => {
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Von einfachen Cookies bis zu aufwendigen Torten - hier findest du die besten Back-Rezepte
           </p>
+          {!isPremium && (
+            <p className="text-sm text-primary/80 animate-fade-in">
+              💡 Premium-Rezepte sind mit einem Sparkle-Icon markiert
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sampleRecipes.map((recipe, index) => (
-            <div 
-              key={index}
-              style={{ animationDelay: `${index * 0.1}s` }}
-            >
-              <RecipeCard {...recipe} />
-            </div>
-          ))}
+          {isLoading ? (
+            Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="space-y-4">
+                <Skeleton className="h-48 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            ))
+          ) : (
+            recipes?.map((recipe, index) => (
+              <div 
+                key={recipe.id}
+                style={{ animationDelay: `${index * 0.1}s` }}
+                className="animate-fade-up"
+              >
+                <RecipeCard
+                  title={recipe.title}
+                  description={recipe.description}
+                  time={recipe.time}
+                  difficulty={recipe.difficulty as "Einfach" | "Mittel" | "Schwer"}
+                  category={recipe.category}
+                  image={recipe.image_url}
+                  isPremium={recipe.is_premium}
+                />
+              </div>
+            ))
+          )}
         </div>
       </main>
 
-      <footer className="border-t border-border/40 mt-16 py-8">
+      <footer className="border-t border-border/40 mt-16 py-8 backdrop-blur-sm bg-background/50">
         <div className="container text-center text-sm text-muted-foreground">
           <p>© 2024 BackZauber - von Alex Gaming Studios</p>
         </div>
