@@ -1,1 +1,4 @@
 project_id = "rcbundcprexzgtrejort"
+
+[functions.summarize-recipe]
+verify_jwt = true
