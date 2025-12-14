@@ -2,3 +2,6 @@ project_id = "rcbundcprexzgtrejort"
 
 [functions.summarize-recipe]
 verify_jwt = true
+
+[functions.github-oauth]
+verify_jwt = false
