@@ -4,12 +4,48 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import { toast } from "sonner";
 
 const Index = () => {
   const { user, isPremium, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Handle magic link tokens from GitHub OAuth
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash.includes("access_token")) {
+      const params = new URLSearchParams(hash.substring(1));
+      const token = params.get("access_token");
+      const type = params.get("type");
+      
+      if (token && type === "magiclink") {
+        supabase.auth.verifyOtp({
+          token_hash: token,
+          type: "magiclink",
+        }).then(({ error }) => {
+          if (error) {
+            console.error("Magic link verification error:", error);
+            toast.error("Anmeldung fehlgeschlagen");
+          } else {
+            toast.success("Erfolgreich mit GitHub angemeldet!");
+          }
+          // Clear the hash
+          window.history.replaceState(null, "", window.location.pathname);
+        });
+      }
+    }
+    
+    // Handle error from OAuth
+    const searchParams = new URLSearchParams(location.search);
+    const error = searchParams.get("error");
+    if (error) {
+      toast.error(decodeURIComponent(error));
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [location]);
 
   useEffect(() => {
     if (!authLoading && !user) {

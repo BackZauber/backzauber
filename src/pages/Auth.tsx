@@ -87,24 +87,14 @@ const Auth = () => {
     }
   };
 
-  const handleGithubSignIn = async () => {
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'github',
-        options: {
-          redirectTo: `${window.location.origin}/`,
-        }
-      });
-
-      if (error) {
-        toast.error(error.message);
-      }
-    } catch (error) {
-      toast.error("Ein Fehler ist aufgetreten");
-    } finally {
-      setLoading(false);
-    }
+  const handleGithubSignIn = () => {
+    const clientId = "Ov23liugzdsbUgBADID2";
+    const redirectUri = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/github-oauth`;
+    const scope = "read:user user:email";
+    
+    const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&redirect_url=${encodeURIComponent(window.location.origin + "/")}`;
+    
+    window.location.href = githubAuthUrl;
   };
 
   return (
